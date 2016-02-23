@@ -1,8 +1,7 @@
 'use strict'
 import React from 'react-native'
-import NavigationBar from './custom-views/react-native-navigationbar/index'
+import NavigationBar from 'react-native-navigationbar'
 var {
-  StyleSheet,
   Component,
   WebView,
   View

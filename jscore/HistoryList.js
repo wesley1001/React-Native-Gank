@@ -1,11 +1,13 @@
+/*global fetch*/
 'use strict'
 import React from 'react-native'
 import DateUtils from './utils/DateUtils'
 import RequestUtils from './utils/RequestUtils'
 import DailyContent from './DailyContent'
-import NavigationBar from './custom-views/react-native-navigationbar/index'
+import NavigationBar from 'react-native-navigationbar'
 import AboutPage from './AboutPage'
 import Animation from './custom-views/Animation'
+import SnackBar from './custom-views/SnackBar.js'
 var {
   StyleSheet,
   View,
@@ -55,7 +57,8 @@ class HistoryList extends Component {
       dataSource: new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2}).cloneWithRows(this.props.contentDataGroup), // 先初始化一个空的数据集合
       dataArray: this.props.contentDataGroup,
       loadMore: false,
-      isRefreshing: false
+      isRefreshing: false,
+      isError: false
     }
   }
 
@@ -72,6 +75,12 @@ class HistoryList extends Component {
         <Animation timingLength = {50} duration = {500} bodyColor={'#aaaaaa'}/>
       </View>)
     : (<View/>)
+
+    let snackBar = this.state.isError
+    ? (<SnackBar/>)
+    : null
+
+    this.state.isError = false
 
     return (
       <View style={styles.container}>
@@ -103,6 +112,7 @@ class HistoryList extends Component {
             progressBackgroundColor='#aaaaaa'/>
           }/>
           {loadmoreAnimation}
+          {snackBar}
       </View>
     )
   }
@@ -117,14 +127,25 @@ class HistoryList extends Component {
     }
     this.setState({isRefreshing: true})
     this._updateDate()
-    var contentDataGroup = await RequestUtils.getContents(this.LAST_DATE)
-    console.log(contentDataGroup)
-    this.setState({
-      dataArray: contentDataGroup,
-      dataSource: this.state.dataSource.cloneWithRows(contentDataGroup),
-      isLoading: false,
-      isRefreshing: false
-    })
+
+    try {
+      var contentDataGroup = await RequestUtils.getContents(this.LAST_DATE)
+      if (typeof contentDataGroup === 'undefined') { return }
+      console.log(contentDataGroup)
+      this.setState({
+        dataArray: contentDataGroup,
+        dataSource: this.state.dataSource.cloneWithRows(contentDataGroup),
+        isLoading: false,
+        isRefreshing: false
+      })
+    } catch (error) {
+      console.log(error)
+      this.setState({
+        isError: true,
+        isRefreshing: false
+      })
+    }
+
     // ??? setState 放到外边 ，contentData会清零？重置？
     // 异步方法的数据只能在回调方法里获取。await可以让它顺序执行
   }
@@ -136,14 +157,18 @@ class HistoryList extends Component {
     }
     this.setState({loadMore: true})
     var lastDate = this.state.dataArray[this.state.dataArray.length - 1].date
-    console.log('lastDate: ' + this.state.dataArray[this.state.dataArray.length - 1].date)
+
     let loadedContentGroup
     try {
       loadedContentGroup = await RequestUtils.getContents(DateUtils.convertDate(lastDate))
     } catch (error) {
       console.log(error)
-      return
+      this.setState({
+        loadMore: false,
+        isError: true
+      })
     }
+    if (typeof loadedContentGroup === 'undefined') { return }
     let newContent = [...this.state.dataArray, ...loadedContentGroup] // put elements in loadedContentGroup into dataArray
     // var newContent = this.state.dataArray
     // // newContent.push(loadedContent)//???居然不能直接push一个数组

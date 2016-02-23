@@ -4,7 +4,7 @@ import DateUtils from './utils/DateUtils'
 import RequestUtils from './utils/RequestUtils'
 import HistoryList from './HistoryList'
 import WebViewPage from './WebViewPage'
-
+import SnackBar from './custom-views/SnackBar.js'
 var {
     StyleSheet,
     View,
@@ -19,6 +19,7 @@ class HomePage extends Component {
   constructor (...args) {
     super(...args)
     this.state = ({
+      isError: false,
       isLoading: true,
       isPlaying: true,
       fadeAnimLogo: new Animated.Value(0), // 设置动画初始值，生成Value对象
@@ -51,12 +52,20 @@ class HomePage extends Component {
       setTimeout(() => this._hideWelcome(), 0)
     })
 
-    this.contentDataGroup = await RequestUtils.getContents(DateUtils.getCurrentDate())
-    this.homePageContent = this.contentDataGroup[0].results
-
-    this.setState({
-      isLoading: false
-    })
+    try {
+      this.contentDataGroup = await RequestUtils.getContents(DateUtils.getCurrentDate())
+      if (typeof this.contentDataGroup === 'undefined') { return }
+      this.homePageContent = this.contentDataGroup[0].results
+      this.setState({
+        isLoading: false
+      })
+      
+    } catch (error) {
+      console.log('request content from HomePage faile: ', error)
+      this.setState({
+        isError: true
+      })
+    }
 
     setTimeout(() => this._hideWelcome(), 0)
   }
@@ -124,6 +133,10 @@ class HomePage extends Component {
     if (this.state.welcomeEnd) {
       return null
     }
+    let snackBar = this.state.isError
+    ? (<SnackBar/>)
+    : null
+
     return (
       <Animated.View style={[styles.indicatorWrapper, {
         opacity: this.state.fadeAnimLayout
@@ -172,6 +185,7 @@ class HomePage extends Component {
           }}>
           <Text style={styles.footerText}>Powered by: 北京杰讯云动力科技有限公司</Text>
         </Animated.View>
+        {snackBar}
       </Animated.View>
       )
   }

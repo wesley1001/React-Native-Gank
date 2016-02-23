@@ -1,7 +1,7 @@
 'use strict'
 
 import React from 'react-native'
-import NavigationBar from './custom-views/react-native-navigationbar/index'
+import NavigationBar from 'react-native-navigationbar'
 import WebViewPage from './WebViewPage'
 
 var {
@@ -9,6 +9,7 @@ var {
     ScrollView,
     View,
     Component,
+    TouchableHighlight,
     Image,
     Text
    } = React
@@ -67,7 +68,7 @@ class DailyContent extends Component {
     )
   }
 
-  _getViews(contentData){
+  _getViews (contentData) {
     return contentData.category.map((category, index) => (
       <View key={index} style={styles.itemContainer}>
         <Text style={styles.category}>{category}</Text>
@@ -78,9 +79,9 @@ class DailyContent extends Component {
 
   getItems (contentData, category) {
     return contentData.results[category].map((item, index) => (
-      <Text
+      <TouchableHighlight style={styles.titleWrapper}
+        underlayColor='#aaaaaa'
         key={index}
-        style={styles.title}
         onPress={ () => {
           this.props.navigator.push({
             component: WebViewPage,
@@ -88,8 +89,10 @@ class DailyContent extends Component {
             url: item.url
           })
         }}>
-        *  {item.desc} ( {item.who} )
-      </Text>
+        <Text style={styles.title}>
+          *  {item.desc} ( {item.who} )
+        </Text>
+      </TouchableHighlight>
     ))
   }
 }
@@ -122,9 +125,11 @@ var styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    marginTop: 10,
-    lineHeight: 23,
     marginLeft: 15
+  },
+  titleWrapper: {
+    flex: 1,
+    marginTop: 10
   },
   backIcon: {
     width: 14,
@@ -135,8 +140,8 @@ var styles = StyleSheet.create({
     transform: [{rotate: '45deg'}],
     backgroundColor: 'transparent',
     position: 'absolute',
-    top: 34.5,
-    left: 14
+    top: 33.9,
+    left: 14.5
   }
 })
 
