@@ -1,4 +1,3 @@
-/*global fetch*/
 'use strict'
 import React from 'react-native'
 import DateUtils from './utils/DateUtils'
@@ -53,6 +52,8 @@ class HistoryList extends Component {
 
   constructor (props) {
     super(props)
+    this.pageIndex = 0
+    this.dateArray = this.props.dateArray
     this.state = {
       dataSource: new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2}).cloneWithRows(this.props.contentDataGroup), // 先初始化一个空的数据集合
       dataArray: this.props.contentDataGroup,
@@ -70,11 +71,6 @@ class HistoryList extends Component {
     //     <Animatable.Text animation='shake' iterationCount='infinite' duration={1000} direction='normal' style={styles.indicator}/>
     //   </View>)
     // : (<View/>)
-    let loadmoreAnimation = this.state.loadMore
-    ? (<View style={[styles.indicatorWrapper]}>
-        <Animation timingLength = {50} duration = {500} bodyColor={'#aaaaaa'}/>
-      </View>)
-    : (<View/>)
 
     let snackBar = this.state.isError
     ? (<SnackBar/>)
@@ -102,6 +98,7 @@ class HistoryList extends Component {
           dataSource={this.state.dataSource}
           renderRow={this._renderItem.bind(this)}
           onEndReached={this._loadmore.bind(this)}
+          renderFooter={this._renderFooter.bind(this)}
           onEndReachedThreshold = {29}
           refreshControl={
           <RefreshControl
@@ -110,15 +107,10 @@ class HistoryList extends Component {
             tintColor='#aaaaaa'
             title='Loading...'
             progressBackgroundColor='#aaaaaa'/>
-          }/>
-          {loadmoreAnimation}
-          {snackBar}
+        }/>
+        {snackBar}
       </View>
     )
-  }
-
-  _updateDate () {
-    this.LAST_DATE = DateUtils.getCurrentDate()
   }
 
   async _refresh () {
@@ -126,16 +118,18 @@ class HistoryList extends Component {
       return
     }
     this.setState({isRefreshing: true})
-    this._updateDate()
 
     try {
-      var contentDataGroup = await RequestUtils.getContents(this.LAST_DATE)
-      if (typeof contentDataGroup === 'undefined') { return }
+      this.dateArray = (await RequestUtils.getDateArray()).results
+      this.pageIndex = 0
+      let contentDataGroup = await RequestUtils.getContents(this.dateArray.slice(0, 10))
+      if (typeof contentDataGroup === 'undefined') {
+       return
+      }
       console.log(contentDataGroup)
       this.setState({
         dataArray: contentDataGroup,
         dataSource: this.state.dataSource.cloneWithRows(contentDataGroup),
-        isLoading: false,
         isRefreshing: false
       })
     } catch (error) {
@@ -146,21 +140,29 @@ class HistoryList extends Component {
       })
     }
 
-    // ??? setState 放到外边 ，contentData会清零？重置？
     // 异步方法的数据只能在回调方法里获取。await可以让它顺序执行
   }
 
   async _loadmore () {
-    console.log('== loadmore')
     if (this.state.loadMore) {
       return
     }
-    this.setState({loadMore: true})
-    var lastDate = this.state.dataArray[this.state.dataArray.length - 1].date
 
-    let loadedContentGroup
+    this.setState({loadMore: true})
+    console.log('===haha', this.state.loadMore)
+
     try {
-      loadedContentGroup = await RequestUtils.getContents(DateUtils.convertDate(lastDate))
+      this.pageIndex += 10
+      let pageDate = this.dateArray.slice(this.pageIndex, this.pageIndex + 10)
+
+      let loadedContentGroup = await RequestUtils.getContents(pageDate)
+      let newContent = [...this.state.dataArray, ...loadedContentGroup] // put elements in loadedContentGroup into dataArray
+
+      this.setState({
+        dataArray: newContent,
+        dataSource: this.state.dataSource.cloneWithRows(newContent),
+        loadMore: false
+      })
     } catch (error) {
       console.log(error)
       this.setState({
@@ -168,19 +170,16 @@ class HistoryList extends Component {
         isError: true
       })
     }
-    if (typeof loadedContentGroup === 'undefined') { return }
-    let newContent = [...this.state.dataArray, ...loadedContentGroup] // put elements in loadedContentGroup into dataArray
-    // var newContent = this.state.dataArray
-    // // newContent.push(loadedContent)//???居然不能直接push一个数组
-    // for (let element of loadedContentGroup) {
-    //   newContent.push(element)
-    // }
+  }
 
-    this.setState({
-      dataArray: newContent,
-      dataSource: this.state.dataSource.cloneWithRows(newContent),
-      loadMore: false
-    })
+  _renderFooter () {
+    return (
+      this.state.loadMore
+    ? (<View style={[styles.indicatorWrapper]}>
+        <Animation timingLength = {50} duration = {500} bodyColor={'#aaaaaa'}/>
+      </View>)
+    : (<View/>)
+      )
   }
 
   _renderItem (contentData, sectionID, highlightRow) {
@@ -191,7 +190,7 @@ class HistoryList extends Component {
           <Text style={styles.date}>{contentData.date}</Text>
           <Text style={[styles.title]}>{contentData.results.休息视频[0].desc}</Text>
           <Image source={{uri: contentData.results.福利[0].url}}
-               style={styles.thumbnail}/>
+            style={styles.thumbnail}/>
         </View>
       </TouchableHighlight>
     )
